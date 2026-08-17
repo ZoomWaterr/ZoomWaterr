@@ -1,0 +1,61 @@
+name: Update profile effects
+
+on:
+  schedule:
+    # Daily at 03:17 UTC (11:17 China Standard Time).
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - README.md
+      - .github/workflows/update-profile-effects.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-profile-effects
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out profile repository
+        uses: actions/checkout@v4
+
+      - name: Generate contribution snakes
+        uses: Platane/snk/svg-only@v3
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            profile/github-contribution-grid-snake.svg
+            profile/github-contribution-grid-snake-dark.svg?palette=github-dark
+
+      - name: Generate top languages card
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: top-langs
+          options: username=${{ github.repository_owner }}&layout=compact&theme=radical&hide_title=true&langs_count=6
+          path: profile/top-langs.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+
+      - name: Commit generated SVG files
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add profile/*.svg
+
+          if git diff --cached --quiet; then
+            echo "Profile SVG files are already up to date."
+            exit 0
+          fi
+
+          git commit -m "chore: update profile effects"
+          git push
